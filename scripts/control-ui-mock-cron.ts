@@ -267,6 +267,96 @@ export function buildCronMocks(
       };
     },
   );
+  // A spread of cadences and states so the Automations sidebar shows each kind of row.
+  const variedJob = (
+    id: string,
+    name: string,
+    schedule: CronJob["schedule"],
+    state: CronJob["state"],
+    enabled = true,
+  ): CronJob => ({
+    id,
+    agentId: "main",
+    name,
+    enabled,
+    createdAtMs: baseTime - 20 * day,
+    updatedAtMs: baseTime - 3 * hour,
+    schedule,
+    sessionTarget: "isolated",
+    wakeMode: "now",
+    payload: { kind: "agentTurn", message: name },
+    delivery: { mode: "none" },
+    state,
+  });
+  const variedJobs: CronJob[] = [
+    variedJob(
+      "mock-cron-weekly-report",
+      "Weekly team report",
+      { kind: "cron", expr: "0 9 * * 1", tz: "America/New_York" },
+      { nextRunAtMs: baseTime + 3 * day, lastRunAtMs: baseTime - 4 * day, lastRunStatus: "ok" },
+    ),
+    variedJob(
+      "mock-cron-standup-notes",
+      "Prepare standup notes",
+      { kind: "cron", expr: "30 8 * * 1-5", tz: "America/New_York" },
+      { nextRunAtMs: baseTime + 15 * hour, lastRunAtMs: baseTime - 9 * hour, lastRunStatus: "ok" },
+    ),
+    variedJob(
+      "mock-cron-billing-reconcile",
+      "Reconcile monthly billing",
+      { kind: "cron", expr: "0 6 1 * *", tz: "UTC" },
+      { nextRunAtMs: baseTime + 16 * day, lastRunAtMs: baseTime - 14 * day, lastRunStatus: "ok" },
+    ),
+    variedJob(
+      "mock-cron-api-credits",
+      "Remind me about API credits",
+      { kind: "at", at: new Date(baseTime + 6 * day).toISOString() },
+      { nextRunAtMs: baseTime + 6 * day },
+    ),
+    variedJob(
+      "mock-cron-dependency-audit",
+      "Audit dependency updates",
+      { kind: "cron", expr: "0 7 * * *", tz: "UTC" },
+      {
+        nextRunAtMs: baseTime + 11 * hour,
+        lastRunAtMs: baseTime - 13 * hour,
+        lastRunStatus: "error",
+        lastError: "The package registry rejected the token.",
+        consecutiveErrors: 1,
+      },
+    ),
+    variedJob(
+      "mock-cron-stale-branches",
+      "Clean up stale branches",
+      { kind: "cron", expr: "0 3 * * *", tz: "UTC" },
+      { lastRunAtMs: baseTime - 6 * day, lastRunStatus: "ok" },
+      false,
+    ),
+    variedJob(
+      "mock-cron-certificates",
+      "Renew TLS certificates",
+      { kind: "every", everyMs: 12 * hour, anchorMs: baseTime - 30 * day },
+      { lastRunAtMs: baseTime - 9 * day, lastRunStatus: "ok" },
+      false,
+    ),
+    variedJob(
+      "mock-cron-archive-sessions",
+      "Archive old sessions",
+      { kind: "cron", expr: "0 2 * * 0", tz: "UTC" },
+      {
+        lastRunAtMs: baseTime - 2 * day,
+        lastRunStatus: "error",
+        lastError: "The archive volume is read-only.",
+        consecutiveErrors: 5,
+        autoDisabled: {
+          reason: "consecutive-failures",
+          atMs: baseTime - 2 * day,
+          consecutiveErrors: 5,
+        },
+      },
+      false,
+    ),
+  ];
   const jobs = [
     overdueJob,
     ...extraOverdueJobs,
@@ -274,6 +364,7 @@ export function buildCronMocks(
     failedJob,
     ...extraFailedJobs,
     ...backlogFailedJobs,
+    ...variedJobs,
   ];
   // A native delivery/wake lane also binds these jobs to the session's automation panel.
   if (options.sessionKey) {
@@ -402,7 +493,10 @@ export function buildCronMocks(
         match: { enabled: "enabled", lastRunStatus: "error" },
         response: listResult(failedJobs, { limit: failedJobs.length }),
       },
-      { match: { enabled: "disabled" }, response: listResult([]) },
+      {
+        match: { enabled: "disabled" },
+        response: listResult(jobs.filter((job) => !job.enabled)),
+      },
       ...singleJobListCases(jobs, {
         enabled: "enabled",
         sortBy: "nextRunAtMs",
