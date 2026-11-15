@@ -1082,6 +1082,29 @@ const MOCK_INSTALLED_SKILLS = (
   install: [],
 }));
 
+// This browser holds the mock claw's owner device key, so the Access page offers the owner's
+// controls (invite, approve, remove). A fixed synthetic key, listed in ownerDevices below.
+const MOCK_OPENCLAW_ID_OWNER_PKCS8 =
+  "MC4CAQAwBQYDK2VwBCIEIJ0x1ono2o6KP4PR/7YAKKE3SXYdo/OOAS0gd1Xf9zc7";
+const MOCK_OPENCLAW_ID_OWNER_PUB =
+  "d48ae9be8971523cf66217c59431dccf9fadfb217ebb9410ef6f305435dd1c79";
+const MOCK_OPENCLAW_ID_OWNER_SCRIPT = `<script data-openclaw-mock-owner-device>
+(async () => {
+  const bytes = (text) => Uint8Array.from(atob(text), (char) => char.charCodeAt(0));
+  const hex = (text) => Uint8Array.from(text.match(/../g), (pair) => parseInt(pair, 16));
+  const privateKey = await crypto.subtle.importKey("pkcs8", bytes("${MOCK_OPENCLAW_ID_OWNER_PKCS8}"), "Ed25519", false, ["sign"]);
+  const publicKey = await crypto.subtle.importKey("raw", hex("${MOCK_OPENCLAW_ID_OWNER_PUB}"), "Ed25519", true, ["verify"]);
+  const open = indexedDB.open("openclaw-id", 1);
+  open.onupgradeneeded = () => open.result.createObjectStore("owner-devices");
+  open.onsuccess = () => {
+    const db = open.result;
+    const tx = db.transaction("owner-devices", "readwrite");
+    tx.objectStore("owner-devices").put({ privateKey, publicKey }, "mock-claw");
+    tx.oncomplete = () => db.close();
+  };
+})().catch(() => {});
+</script>`;
+
 const MOCK_OPENCLAW_ID_LINK = (() => {
   const now = Math.floor(Date.now() / 1000);
   const device = (index: number, label: string, approvedBy: unknown) => ({
@@ -1107,7 +1130,12 @@ const MOCK_OPENCLAW_ID_LINK = (() => {
     clawId: "mock-claw",
     seq: 3,
     ownerDevices: [
-      { devicePub: "ed25519:mock-owner", label: "Owner browser", peerKeys: [], cert: {} },
+      {
+        devicePub: `ed25519:${MOCK_OPENCLAW_ID_OWNER_PUB}`,
+        label: "This browser",
+        peerKeys: [],
+        cert: {},
+      },
     ],
     members: [
       member("member-mira", "Mira", "mira@example.test", [
@@ -1117,7 +1145,35 @@ const MOCK_OPENCLAW_ID_LINK = (() => {
         device(2, "Safari on iPhone", { kind: "owner", by: "root" }),
       ]),
     ],
-    invites: [],
+    invites: [
+      {
+        inviteId: "invite-sam",
+        label: "sam@example.test",
+        role: "operator",
+        audience: { kind: "email", value: "sam@example.test" },
+        createdAt: now - 7_200,
+        expiresAt: now + 86_400 * 6,
+        status: "pending",
+        pending: {
+          accountId: "account-sam",
+          devicePub: `ed25519:${"5".repeat(64)}`,
+          peerKey: `iroh:${"5".repeat(64)}`,
+          requestedAt: now - 600,
+          decideBy: now + 86_400,
+          reported: { email: "sam@example.test", displayName: "Sam", locationHint: "Lisbon, PT" },
+          device: { label: "Firefox on Windows", platform: "windows" },
+        },
+      },
+      {
+        inviteId: "invite-ana",
+        label: "ana@example.test",
+        role: "operator",
+        audience: { kind: "email", value: "ana@example.test" },
+        createdAt: now - 3_600,
+        expiresAt: now + 86_400 * 7,
+        status: "open",
+      },
+    ],
   };
 })();
 
@@ -4014,7 +4070,7 @@ async function createMockGatewayPlugin(
       </script>`;
       return html.replace(
         "</head>",
-        `${attachmentThemeToggle}    <script data-openclaw-control-ui-mock-storage>\n      try {\n        localStorage.setItem("openclaw.i18n.locale", "en");\n      } catch {}\n    </script>\n    <script data-openclaw-control-ui-mock-gateway>\n${sameOriginGatewayScript}\n${initScript}\n${statefulInitScript}\n    </script>\n${rosterPreferenceScript}\n  </head>`,
+        `${attachmentThemeToggle}    <script data-openclaw-control-ui-mock-storage>\n      try {\n        localStorage.setItem("openclaw.i18n.locale", "en");\n      } catch {}\n    </script>\n    <script data-openclaw-control-ui-mock-gateway>\n${sameOriginGatewayScript}\n${initScript}\n${statefulInitScript}\n    </script>\n${rosterPreferenceScript}\n${MOCK_OPENCLAW_ID_OWNER_SCRIPT}\n  </head>`,
       );
     },
   };
