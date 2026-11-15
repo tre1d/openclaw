@@ -111,6 +111,9 @@ export async function executeMutableUpdate(
   };
   const mode: UpdateRunResult["mode"] =
     params.updateInstallKind === "git" ? "git" : params.packageInstallTarget.manager;
+  // A POSIX Git release update switches a link; the serving Gateway keeps its own
+  // release until the service restarts, so nothing is verified, stopped or parked first.
+  const gitRelease = mode === "git" && !params.switchToGit && process.platform !== "win32";
   if (opts.recovery) {
     throw new UpdatePreMutationError(
       "update-recovery-pending",
@@ -465,6 +468,7 @@ export async function executeMutableUpdate(
     if (
       preManagedServiceStop?.running &&
       !servicePrepared &&
+      !gitRelease &&
       preManagedServiceStop.serviceUpdateVerdict?.kind === "owned"
     ) {
       await verifyPreviousManagedGatewayForUpdate({
@@ -483,7 +487,7 @@ export async function executeMutableUpdate(
     }
     // A separate serving runtime needs complete compensation evidence before
     // its stop. --no-restart neither needs nor acquires restart authority.
-    if (params.shouldRestart && !servicePrepared) {
+    if (params.shouldRestart && !servicePrepared && !gitRelease) {
       originalManagedServiceRuntime = await observeOriginalManagedServiceRuntime(
         params,
         preManagedServiceStop,
@@ -503,13 +507,10 @@ export async function executeMutableUpdate(
       assertCurrent: assertExecutionCurrent,
       updateInstallKind: params.updateInstallKind,
       shouldRestart: params.shouldRestart,
+      selected: gitRelease ? undefined : preManagedServiceStop,
     };
-    await assertManagedGatewayArtifactPublication({
-      ...publication,
-      selected: preManagedServiceStop,
-      phase: "before-stop",
-    });
-    if (!servicePrepared) {
+    await assertManagedGatewayArtifactPublication({ ...publication, phase: "before-stop" });
+    if (!servicePrepared && !gitRelease) {
       await waitForCurrent();
       await stopManagedServiceBeforeMutableUpdate(roots);
       // Preparation can hold Windows recovery custody without stopping a process.
@@ -517,10 +518,7 @@ export async function executeMutableUpdate(
     }
     const postStopStartedAt = Date.now();
     await waitForCurrent();
-    const publicationWarning = await assertManagedGatewayArtifactPublication({
-      ...publication,
-      selected: preManagedServiceStop,
-    });
+    const publicationWarning = await assertManagedGatewayArtifactPublication(publication);
     if (originalRun) {
       // The run's database capture follows activation; refuse while nothing has changed.
       await assertUpdatePostgresCaptureOwnership({ config, env });
