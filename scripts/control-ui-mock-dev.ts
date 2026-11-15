@@ -1082,6 +1082,45 @@ const MOCK_INSTALLED_SKILLS = (
   install: [],
 }));
 
+const MOCK_OPENCLAW_ID_LINK = (() => {
+  const now = Math.floor(Date.now() / 1000);
+  const device = (index: number, label: string, approvedBy: unknown) => ({
+    peerKey: `iroh:${String(index).repeat(64)}`,
+    deviceFp: `fp:${String(index).repeat(64)}`,
+    label,
+    approvedBy,
+    connections: index === 1 ? 1 : 0,
+    lastSeenAt: null,
+    lastSeen: now - index * 3_600,
+    runs: [],
+  });
+  const member = (accountId: string, displayName: string, email: string, devices: unknown[]) => ({
+    accountId,
+    displayName,
+    email,
+    role: "operator",
+    peerKeys: devices.map((entry) => (entry as { peerKey: string }).peerKey),
+    devices,
+  });
+  return {
+    linked: true,
+    clawId: "mock-claw",
+    seq: 3,
+    ownerDevices: [
+      { devicePub: "ed25519:mock-owner", label: "Owner browser", peerKeys: [], cert: {} },
+    ],
+    members: [
+      member("member-mira", "Mira", "mira@example.test", [
+        device(1, "Chrome on macOS", { kind: "invite", invite_id: "team-invite" }),
+      ]),
+      member("member-peter", "Peter", "peter@example.test", [
+        device(2, "Safari on iPhone", { kind: "owner", by: "root" }),
+      ]),
+    ],
+    invites: [],
+  };
+})();
+
 const MOCK_TEMPLATES = (
   [
     ["@openclaw/support-desk", "Support desk", "Triage and answer customer support mail."],
@@ -1114,6 +1153,8 @@ function buildConfigMocks(
       publicOrigin: "https://gateway.example",
       // Templates is experimental; the mock turns it on so Customize shows it.
       controlUi: { experimental: { templates: true } },
+      // OpenClaw ID remote access is a Labs feature; on, its Access page registers.
+      openclawId: { enabled: true },
     },
     agents: { defaults: { thinkingDefault: "medium" } },
     commands: { native: "auto", nativeSkills: "auto" },
@@ -2548,6 +2589,9 @@ async function createChatPickerScenario(
       ...(fixture === "reactions" ? ["users.mentionable"] : []),
       "skills.status",
       "templates.catalog.search",
+      "openclawId.status",
+      "openclawId.people",
+      "openclawId.authority",
       "skills.workshop.applyDraft",
       "skills.workshop.archive",
       "skills.workshop.changes",
@@ -2596,6 +2640,11 @@ async function createChatPickerScenario(
         pluginId: "knowledge",
         rootDir: path.join(repoRoot, "extensions", "knowledge"),
         source: "src/control-ui.ts",
+      },
+      {
+        pluginId: "openclaw-id-access",
+        rootDir: path.join(repoRoot, "extensions", "openclaw-id-access"),
+        source: "./browser/index.tsx",
       },
     ],
     controlUiWidgetKinds: [
@@ -2984,6 +3033,14 @@ async function createChatPickerScenario(
         managedSkillsDir: "/Users/demo/.openclaw/skills",
         skills: MOCK_INSTALLED_SKILLS,
       },
+      // The owner sees OpenClaw ID remote access on, with two members and a pending invite.
+      "openclawId.status": {
+        status: { state: "on" },
+        owner: true,
+        channel: "local_operator",
+        link: { linked: true },
+      },
+      "openclawId.people": { link: MOCK_OPENCLAW_ID_LINK },
       // One response serves both the Templates overview and its searches.
       "templates.catalog.search": {
         overview: { featured: MOCK_TEMPLATES, sections: [] },
@@ -3831,7 +3888,11 @@ async function createMockGatewayPlugin(
         ? `(() => { const __name = (target) => target; (${installWorkboardBoardMock.toString()})(${JSON.stringify(buildWorkboardMocks(Date.now(), MOCK_ACTOR_PETER, fixture === "workboard-states"))}); })();`
         : ""),
   );
-  const bootstrapBody = JSON.stringify(createControlUiMockBootstrapConfig(prepared.scenario));
+  // The Gateway publishes OpenClaw ID as on while gateway.openclawId.enabled is set.
+  const bootstrapBody = JSON.stringify({
+    ...createControlUiMockBootstrapConfig(prepared.scenario),
+    openclawIdEnabled: true,
+  });
   const pluginIconIds = new Set(
     buildPluginCatalogMock()
       .plugins.filter((plugin) => plugin.hasIcon)
