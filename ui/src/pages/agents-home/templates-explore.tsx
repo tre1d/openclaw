@@ -31,7 +31,7 @@ import { registerEnglishCatalog, t } from "../../lib/reactive/i18n.ts";
 import { createLayoutMeasurement } from "../../lib/reactive/layout-measurement.ts";
 import { observeWindowResize } from "../../lib/reactive/window-resize.ts";
 import { PluginsHubHeader } from "../plugins/plugins-hub-header.tsx";
-import { PLUGINS_HUB_PANEL_ID } from "../plugins/plugins-hub.ts";
+import { pluginsHubPanel } from "../plugins/plugins-hub.ts";
 import { TemplateArtwork } from "./template-artwork.tsx";
 import "../../styles/templates-catalog.css";
 import "../../styles/carapace-control-ui.css";
@@ -248,12 +248,7 @@ export function TemplatesExplore(
         }}
       />
       <SettingsPage wide carapace>
-        <div
-          class="agents-home"
-          id={PLUGINS_HUB_PANEL_ID}
-          role="tabpanel"
-          aria-labelledby="plugins-tab-templates"
-        >
+        <div class="agents-home" {...pluginsHubPanel("templates")}>
           <section
             class="agents-home__explore plugin-catalog-results"
             data-templates-explore
