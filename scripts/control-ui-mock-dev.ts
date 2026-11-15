@@ -1050,6 +1050,58 @@ const MCP_EFFECTIVE_TOOLS = {
  * across a few real section keys, and `config.get` returns a matching
  * snapshot with the hash `config.set`/`config.apply` are guarded by.
  */
+const MOCK_INSTALLED_SKILLS = (
+  [
+    ["github", "GitHub", "🐙", "Work with issues, pull requests and Actions."],
+    ["weather", "Weather", "🌤️", "Current conditions and forecasts."],
+    ["summarize", "Summarize", "🧾", "Summarize pages, files and transcripts."],
+    ["calendar", "Calendar", "📅", "Read and plan calendar events."],
+    ["release-notes", "Release notes", undefined, "Draft release notes from merged changes."],
+  ] as const
+).map(([skillKey, name, emoji, description]) => ({
+  name,
+  description,
+  source: "openclaw-bundled",
+  bundled: true,
+  filePath: `/Users/demo/.openclaw/skills/${skillKey}/SKILL.md`,
+  baseDir: `/Users/demo/.openclaw/skills/${skillKey}`,
+  skillKey,
+  ...(emoji ? { emoji } : {}),
+  always: false,
+  disabled: false,
+  blockedByAllowlist: false,
+  blockedByAgentFilter: false,
+  eligible: true,
+  platformIncompatible: false,
+  modelVisible: true,
+  userInvocable: true,
+  commandVisible: true,
+  requirements: { anyBins: [], bins: [], env: [], config: [], os: [] },
+  missing: { anyBins: [], bins: [], env: [], config: [], os: [] },
+  configChecks: [],
+  install: [],
+}));
+
+const MOCK_TEMPLATES = (
+  [
+    ["@openclaw/support-desk", "Support desk", "Triage and answer customer support mail."],
+    ["@openclaw/release-captain", "Release captain", "Plan, cut and announce releases."],
+    ["@openclaw/research-scout", "Research scout", "Collect and summarize sources on a topic."],
+    ["@openclaw/sales-assistant", "Sales assistant", "Prepare account briefs and follow-ups."],
+  ] as const
+).map(([packageName, displayName, summary], index) => ({
+  packageName,
+  displayName,
+  summary,
+  latestVersion: "1.0.0",
+  channel: "official" as const,
+  official: true,
+  ownerHandle: "openclaw",
+  downloads: 1200 - index * 100,
+  installs: 800 - index * 50,
+  updatedAtMs: Date.UTC(2026, 9, 1 + index),
+}));
+
 function buildConfigMocks(
   options: { fullSchema?: boolean; swarmEnabled?: boolean; workboardEnabled?: boolean } = {},
 ) {
@@ -2494,6 +2546,8 @@ async function createChatPickerScenario(
       "session.reactions.list",
       "session.reactions.set",
       ...(fixture === "reactions" ? ["users.mentionable"] : []),
+      "skills.status",
+      "templates.catalog.search",
       "skills.workshop.applyDraft",
       "skills.workshop.archive",
       "skills.workshop.changes",
@@ -2928,7 +2982,12 @@ async function createChatPickerScenario(
       "skills.status": {
         workspaceDir: "/Users/demo/Projects/openclaw",
         managedSkillsDir: "/Users/demo/.openclaw/skills",
-        skills: [],
+        skills: MOCK_INSTALLED_SKILLS,
+      },
+      // One response serves both the Templates overview and its searches.
+      "templates.catalog.search": {
+        overview: { featured: MOCK_TEMPLATES, sections: [] },
+        entries: MOCK_TEMPLATES,
       },
       "channels.status": buildChannelsStatusMock(baseTime),
       "channels.pairing.list": buildChannelsPairingMock(baseTime),
