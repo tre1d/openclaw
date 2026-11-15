@@ -525,19 +525,21 @@ export function createControlUiSessionFixtures(
     });
     const spawnedBy =
       isRecord(params) && typeof params.spawnedBy === "string" ? params.spawnedBy.trim() : "";
-    const childSessions = spawnedBy
-      ? projectedSessions.filter((row) => {
-          if (!isRecord(row) || row.key === spawnedBy) {
-            return false;
-          }
-          const controller =
-            typeof row.controlOwnerSessionKey === "string" ? row.controlOwnerSessionKey.trim() : "";
-          // Fixtures declare current control and navigation lineage; they do not run a registry.
-          return [controller || row.spawnedBy, row.parentSessionKey].some(
-            (owner) => typeof owner === "string" && owner.trim() === spawnedBy,
-          );
-        })
-      : projectedSessions;
+    const board = isRecord(params) ? params.hasBoard : undefined;
+    const childSessions = projectedSessions.filter((row) => {
+      // Like the Gateway, a hasBoard query keeps rows whose dashboard membership matches.
+      const fits =
+        typeof board !== "boolean" || (isRecord(row) && (row.hasBoard === true) === board);
+      if (!fits || !spawnedBy || !isRecord(row) || row.key === spawnedBy) {
+        return fits && !spawnedBy;
+      }
+      const controller =
+        typeof row.controlOwnerSessionKey === "string" ? row.controlOwnerSessionKey.trim() : "";
+      // Fixtures declare current control and navigation lineage; they do not run a registry.
+      return [controller || row.spawnedBy, row.parentSessionKey].some(
+        (owner) => typeof owner === "string" && owner.trim() === spawnedBy,
+      );
+    });
     // A complete fixture becomes a complete child window after local projection.
     // Partial pages retain their explicit server-owned pagination metadata.
     const completeChildFixture =

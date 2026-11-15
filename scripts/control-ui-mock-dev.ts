@@ -1948,25 +1948,24 @@ async function createChatPickerScenario(
       },
     };
   }
-  const dashboardGallerySessions =
-    fixture === "dashboards"
-      ? (
-          [
-            ["release-health", "Release health", 3_000, MOCK_ACTOR_MIRA],
-            ["model-spend", "Model spend", 8_000, MOCK_ACTOR_PETER],
-            ["support-radar", "Support radar", 18_000, MOCK_ACTOR_MIRA],
-            ["ci-signal", "CI signal", 42_000, MOCK_ACTOR_PETER],
-            ["community-pulse", "Community pulse", 75_000, MOCK_ACTOR_MIRA],
-            ["gateway-fleet", "Gateway fleet", 130_000, MOCK_ACTOR_PETER],
-          ] as const
-        ).map(([key, label, age, owner]) =>
-          sessionRow(`agent:main:dashboard:${key}`, label, baseTime - age, {
-            boardFace: "dashboard",
-            createdActor: owner,
-            ...(key === "release-health" ? { hasActiveRun: true, status: "running" } : {}),
-          }),
-        )
-      : [];
+  // Every scenario has a few sessions with a pinned dashboard, so Dashboards lists them.
+  const dashboardGallerySessions = (
+    [
+      ["release-health", "Release health", 3_000, MOCK_ACTOR_MIRA],
+      ["model-spend", "Model spend", 8_000, MOCK_ACTOR_PETER],
+      ["support-radar", "Support radar", 18_000, MOCK_ACTOR_MIRA],
+      ["ci-signal", "CI signal", 42_000, MOCK_ACTOR_PETER],
+      ["community-pulse", "Community pulse", 75_000, MOCK_ACTOR_MIRA],
+      ["gateway-fleet", "Gateway fleet", 130_000, MOCK_ACTOR_PETER],
+    ] as const
+  ).map(([key, label, age, owner]) =>
+    sessionRow(`agent:main:dashboard:${key}`, label, baseTime - age, {
+      boardFace: "dashboard",
+      hasBoard: true,
+      createdActor: owner,
+      ...(key === "release-health" ? { hasActiveRun: true, status: "running" } : {}),
+    }),
+  );
   const activeGoal = {
     schemaVersion: 1 as const,
     id: "goal-mobile-parity",
@@ -2034,6 +2033,7 @@ async function createChatPickerScenario(
       ? [
           sessionRow(workboardMocks.sessionKey, "Product operations dashboard", baseTime, {
             boardFace: "dashboard",
+            hasBoard: true,
             pinned: true,
           }),
           ...workboardMocks.cardSessions,
