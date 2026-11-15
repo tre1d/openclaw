@@ -513,6 +513,15 @@ function buildSessionListCases(
       response: pagedSessionsListResponse(sessions, offset, owners),
     });
   }
+  // Like the Gateway, a dashboards query filters before it pages.
+  cases.push({
+    match: { ...matchBase, hasBoard: true },
+    response: pagedSessionsListResponse(
+      sessions.filter((row) => Reflect.get(row, "hasBoard") === true),
+      0,
+      owners,
+    ),
+  });
   cases.push({
     match: matchBase,
     response: pagedSessionsListResponse(sessions, 0, owners),
@@ -1951,15 +1960,16 @@ async function createChatPickerScenario(
   // Every scenario has a few sessions with a pinned dashboard, so Dashboards lists them.
   const dashboardGallerySessions = (
     [
-      ["release-health", "Release health", 3_000, MOCK_ACTOR_MIRA],
-      ["model-spend", "Model spend", 8_000, MOCK_ACTOR_PETER],
-      ["support-radar", "Support radar", 18_000, MOCK_ACTOR_MIRA],
-      ["ci-signal", "CI signal", 42_000, MOCK_ACTOR_PETER],
-      ["community-pulse", "Community pulse", 75_000, MOCK_ACTOR_MIRA],
-      ["gateway-fleet", "Gateway fleet", 130_000, MOCK_ACTOR_PETER],
+      // Ages in minutes, spread from just now to weeks ago.
+      ["release-health", "Release health", 4, MOCK_ACTOR_MIRA],
+      ["model-spend", "Model spend", 90, MOCK_ACTOR_PETER],
+      ["support-radar", "Support radar", 60 * 26, MOCK_ACTOR_MIRA],
+      ["ci-signal", "CI signal", 60 * 24 * 3, MOCK_ACTOR_PETER],
+      ["community-pulse", "Community pulse", 60 * 24 * 9, MOCK_ACTOR_MIRA],
+      ["gateway-fleet", "Gateway fleet", 60 * 24 * 23, MOCK_ACTOR_PETER],
     ] as const
-  ).map(([key, label, age, owner]) =>
-    sessionRow(`agent:main:dashboard:${key}`, label, baseTime - age, {
+  ).map(([key, label, minutes, owner]) =>
+    sessionRow(`agent:main:dashboard:${key}`, label, rosterTime - minutes * 60_000, {
       boardFace: "dashboard",
       hasBoard: true,
       createdActor: owner,
