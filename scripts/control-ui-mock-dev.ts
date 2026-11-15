@@ -1066,7 +1066,7 @@ const MOCK_INSTALLED_SKILLS = (
   filePath: `/Users/demo/.openclaw/skills/${skillKey}/SKILL.md`,
   baseDir: `/Users/demo/.openclaw/skills/${skillKey}`,
   skillKey,
-  ...(emoji ? { emoji } : {}),
+  emoji,
   always: false,
   disabled: false,
   blockedByAllowlist: false,

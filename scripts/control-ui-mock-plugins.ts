@@ -299,6 +299,7 @@ export function buildPluginCatalogMock(options: PluginCatalogMockOptions = {}) {
     ),
     entry({
       id: "knowledge",
+      hasIcon: true,
       name: "Knowledge",
       description: "Evidence-backed knowledge, inspectable in OpenClaw.",
       category: "memory",
@@ -307,6 +308,7 @@ export function buildPluginCatalogMock(options: PluginCatalogMockOptions = {}) {
     }),
     entry({
       id: "memory-wiki",
+      hasIcon: true,
       name: "Memory Wiki",
       description: "Long-term wiki-style memory for people and projects.",
       category: "memory",
