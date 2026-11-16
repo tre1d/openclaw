@@ -159,6 +159,26 @@ export function prepareBundledPluginRuntime({ repoRoot }) {
     }),
 );
 
+it("leaves the checkout's artifact lock to the developer during a Git release update", async () =>
+  withTestDir({ prefix: "release-artifact-admission-" }, async (root) => {
+    await fs.mkdir(path.join(root, ".git"));
+    // A developer build in the preserved checkout holds its artifact lock.
+    const lock = path.join(root, ".artifacts", "dist-artifacts.lock");
+    await fs.mkdir(lock, { recursive: true });
+    await fs.writeFile(
+      path.join(lock, "owner.json"),
+      JSON.stringify({ pid: 0x7fff_ffff, startedAt: "2026-09-20T01:00:00.000Z" }),
+    );
+    gitCandidate(undefined, true);
+
+    const execution = await execute({ ...executionParams("git"), root, gitRelease: true });
+
+    expect(execution?.result.reason).not.toBe("source-artifact-ownership");
+    expect(mocks.runGitUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceRuntimePrepared: false }),
+    );
+  }));
+
 it("continues the update with its recorded readiness warning", async () => {
   const message =
     "Readiness probe http://127.0.0.1:18789/readyz failed: HTTP 502. Check the configured proxy.";
